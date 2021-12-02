@@ -1,0 +1,3 @@
+[submodule "Snek3D-Backend"]
+	path = Snek3D-Backend
+	url = https://github.com/Tanishq-Banyal/Snek3D-Backend
