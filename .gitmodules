@@ -1,3 +1,6 @@
 [submodule "Snek3D-Backend"]
 	path = backend
 	url = https://github.com/Tanishq-Banyal/Snek3D-Backend
+[submodule "pipette"]
+	path = pipette
+	url = https://github.com/Tanishq-Banyal/pipette

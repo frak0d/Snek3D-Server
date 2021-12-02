@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "pipette/pipette.hpp"
+#include "pipette/pipe.hpp"
 #include "backend/SnekGame3D.hpp"
 
 int main(int argc, char* argv[])
