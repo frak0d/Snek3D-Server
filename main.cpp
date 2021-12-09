@@ -1,6 +1,6 @@
 #include <cstdio>
 
-#include "pipette/pipe.hpp"
+#include "pipette/pipe.cpp"
 #include "backend/SnekGame3D.hpp"
 
 /*
@@ -41,7 +41,11 @@ int main()
 	SnekGame3D<mint> game(16,16,16);
 	
 	pipette::pipe pfront;
-	pfront.open("./Snek3D-Frontend - -", true);
+	if (!pfront.open("./Snek3D-Frontend - -", true))
+	{
+		std::puts("Err opening pipe..");
+		std::exit(-2);
+	}
 
 	pfront.write((uint8_t*)(mint_sz * 8u), 1); // max bits per coord
 	pfront << game.wrld; // max world size
