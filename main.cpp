@@ -19,7 +19,7 @@ backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
 	backend (x,y,z,x,y,z....) >> frontend
 </repeat>
 */
-/*
+
 int operator >> (const pipette::pipe& pipe, char& ch)
 {
 	return pipe.read((uint8_t*)&ch, 1);
@@ -32,7 +32,7 @@ void operator << (const pipette::pipe& pipe, const Point3D<T>& pnt)
 	pipe.write((uint8_t*)&pnt.y, sizeof(T));
 	pipe.write((uint8_t*)&pnt.z, sizeof(T));
 }
-*/
+
 int main()
 {
 	using mint = uint8_t;
@@ -44,36 +44,23 @@ int main()
 	pipette::pipe pfront;
 	pfront.open("./Snek3D-Frontend - -", true);
 
-	pfront.write((uint8_t*)(mint_sz * 8u), 1);
-	
-	pfront.write((uint8_t*)&game.wrld.x, mint_sz);
-	pfront.write((uint8_t*)&game.wrld.y, mint_sz);
-	pfront.write((uint8_t*)&game.wrld.z, mint_sz);
+	pfront.write((uint8_t*)(mint_sz * 8u), 1); // max bits per coord
+	pfront << game.wrld; // max world size
 	
 	while (true)
 	{
-		if (!pfront.read((uint8_t*)&key, 1))
+		if (!(pfront >> key))
 		{
 			std::puts("Err reading key");
 			continue;
 		}
-		else
-		{
-			game.nextFrame(key);
-		}
+		
+		game.nextFrame(key);
 		
 		num_pnts = game.snek.size() + 1;
 		pfront.write((uint8_t*)&num_pnts, 4);
-
-		pfront.write((uint8_t*)&game.food.x, mint_sz);
-		pfront.write((uint8_t*)&game.food.y, mint_sz);
-		pfront.write((uint8_t*)&game.food.z, mint_sz);
 		
-		for	(const auto& pnt : game.snek)
-		{
-			pfront.write((uint8_t*)&pnt.x, mint_sz);
-			pfront.write((uint8_t*)&pnt.y, mint_sz);
-			pfront.write((uint8_t*)&pnt.z, mint_sz);
-		}
+		pfront << game.food;
+		for	(auto& piece : game.snek) pfront << piece;
 	}
 }
