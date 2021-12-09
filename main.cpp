@@ -1,5 +1,4 @@
 #include <cstdio>
-#include <cstdio>
 
 #include "pipette/pipe.hpp"
 #include "backend/SnekGame3D.hpp"
@@ -61,6 +60,6 @@ int main()
 		pfront.write((uint8_t*)&num_pnts, 4);
 		
 		pfront << game.food;
-		for	(auto& piece : game.snek) pfront << piece;
+		for (const auto& piece : game.snek) pfront << piece;
 	}
 }
