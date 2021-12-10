@@ -4,3 +4,6 @@
 [submodule "pipette"]
 	path = pipette
 	url = https://github.com/Tanishq-Banyal/pipette
+[submodule "frontend"]
+	path = frontend
+	url = https://github.com/eternalfrustation/Snek3D-Frontend
