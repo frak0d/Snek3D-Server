@@ -63,7 +63,7 @@ int main()
 			++err_cnt;
 			std::printf("Error Reading Key... (%-2d errors)\n", err_cnt);
 			
-			if (err_cnt > 20)
+			if (err_cnt >= 20)
 			{
 				std::puts("\nToo Many Errors, Exiting...");
 				std::exit(-3);

@@ -8,7 +8,7 @@ backend: bdir
 
 frontend: bdir fdeps
 	cd frontend && make
-	cp frontend/Snek3D-Frontend build/
+	mv frontend/Snek3D-Frontend build/
 
 fdeps: bdir
 	cp frontend/vertex.vert build/
