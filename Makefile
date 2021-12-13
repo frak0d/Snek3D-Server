@@ -1,4 +1,4 @@
-all: back front
+all: backend frontend
 
 bdir:
 	mkdir -p build/
