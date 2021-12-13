@@ -1,19 +1,19 @@
-all: pre back front
+all: back front
 
-pre:
+bdir:
 	mkdir -p build/
 
-back:
+backend: bdir
 	g++ --std=c++20 -s -O2 main.cpp -o build/Snek3D -static -flto -mtune=native -DNDEBUG -Wno-narrowing
 
-front: deps
+frontend: bdir fdeps
 	cd frontend && make -j 4
 	cp Snek3D-Frontend ../build/
 
-deps:
+fdeps: bdir
 	cp frontend/vertex.vert build/
 	cp frontend/frag.frag   build/
 	cp frontend/ico.png     build/
 
 clean:
-	rm -r build/
+	rm -rf build/
