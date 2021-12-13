@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <concepts>
 
 #include "pipette/pipe.cpp"
 #include "backend/SnekGame3D.hpp"
@@ -9,7 +10,7 @@ $ HERE ARE FRONTEND PROTOCOL DETAILS :-
 [backend started by user]
 [backend pipes the  frontend]
 
-backend (u8 max bits in coord) >> frontend
+backend (u8 max bits in one coord) >> frontend
 backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
 
 <repeat>
@@ -19,50 +20,61 @@ backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
 </repeat>
 */
 
-int operator >> (const pipette::pipe& pipe, char& ch)
+int operator >> (const pipette::pipe& pipe, std::integral auto& T)
 {
-	return pipe.read((uint8_t*)&ch, 1);
+	return pipe.read((uint8_t*)&T, sizeof(T));
+}
+
+int operator << (const pipette::pipe& pipe, const std::integral auto& T)
+{
+	return pipe.write((uint8_t*)&T, sizeof(T));
 }
 
 template <typename T>
 void operator << (const pipette::pipe& pipe, const Point3D<T>& pnt)
 {
-	pipe.write((uint8_t*)&pnt.x, sizeof(T));
-	pipe.write((uint8_t*)&pnt.y, sizeof(T));
-	pipe.write((uint8_t*)&pnt.z, sizeof(T));
+	pipe << pnt.x ; pipe << pnt.y ; pipe << pnt.z;
 }
 
 int main()
 {
 	using mint = uint8_t;
-	auto mint_sz = sizeof(mint);
 
-	char key; uint32_t num_pnts;
-	SnekGame3D<mint> game(16,16,16);
+	char key;
+	int err_cnt=0;
+	uint32_t num_pnts;
+	
+	SnekGame3D<mint> game(20,20,20);
 	
 	pipette::pipe pfront;
 	if (!pfront.open("./Snek3D-Frontend - -", true))
 	{
-		std::puts("Err opening pipe..");
-		std::exit(-2);
+		std::puts("Error opening Pipe !");
+	//	std::exit(-2);
 	}
 
-	pfront.write((uint8_t*)(mint_sz * 8u), 1); // max bits per coord
+	pfront << (uint8_t)(sizeof(mint)*8u); // max bits per coord
 	pfront << game.wrld; // max world size
 	
 	while (true)
 	{
 		if (!(pfront >> key))
 		{
-			std::puts("Err reading key");
-			continue;
+			++err_cnt;
+			std::printf("Error Reading Key... (%-2d errors)\n", err_cnt);
+			
+			if (err_cnt > 20)
+			{
+				std::puts("\nToo Many Errors, Exiting...");
+				std::exit(-3);
+			}
+			else continue;
 		}
 		
 		game.nextFrame(key);
-		
 		num_pnts = game.snek.size() + 1;
-		pfront.write((uint8_t*)&num_pnts, 4);
 		
+		pfront << num_pnts;	
 		pfront << game.food;
 		for (const auto& piece : game.snek) pfront << piece;
 	}
