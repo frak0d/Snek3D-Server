@@ -50,7 +50,7 @@ int main()
 	if (!pfront.open("./Snek3D-Frontend - -", true))
 	{
 		std::puts("Error opening Pipe !");
-	//	std::exit(-2);
+		std::exit(-2);
 	}
 
 	pfront << (uint8_t)(sizeof(mint)*8u); // max bits per coord
