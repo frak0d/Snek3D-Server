@@ -4,7 +4,7 @@ bdir:
 	mkdir -p build/
 
 backend: bdir
-	g++ --std=c++20 -s -O2 main.cpp -o build/Snek3D -static -flto -DNDEBUG -Wno-narrowing
+	$(CXX) --std=c++20 -s -O2 main.cpp -o build/Snek3D -static -flto -DNDEBUG -Wno-narrowing
 
 frontend: bdir fdeps
 	cd frontend && make
