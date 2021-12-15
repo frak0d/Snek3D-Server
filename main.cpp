@@ -1,4 +1,6 @@
 #include <cstdio>
+#include <cstdlib>
+#include <csignal>
 #include <concepts>
 
 #include "pipette/pipette.cpp"
@@ -20,18 +22,18 @@ backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
 </repeat>
 */
 
-int operator >> (const pipette::pipe& pipe, std::integral auto& T)
+int operator >> (const pipette::fifo& pipe, std::integral auto& T)
 {
 	return pipe.read((uint8_t*)&T, sizeof(T));
 }
 
-int operator << (const pipette::pipe& pipe, const std::integral auto& T)
+int operator << (const pipette::fifo& pipe, const std::integral auto& T)
 {
 	return pipe.write((uint8_t*)&T, sizeof(T));
 }
 
 template <typename T>
-void operator << (const pipette::pipe& pipe, const Point3D<T>& pnt)
+void operator << (const pipette::fifo& pipe, const Point3D<T>& pnt)
 {
 	pipe << pnt.x ; pipe << pnt.y ; pipe << pnt.z;
 }
@@ -45,20 +47,31 @@ int main()
 	uint32_t num_pnts;
 	
 	SnekGame3D<mint> game(20,20,20);
-	
-	pipette::pipe pfront;
-	if (!pfront.open("./Snek3D-Frontend - -", true))
+
+	pipette::pipe pfront; // more contol over child process
+	pipette::fifo fin("./tmp_inb", 'r'); // recieve from frontend
+	pipette::fifo fout("./tmp_outb", 'w'); // send to frontend
+
+	auto cleaner = [&]()
 	{
-		std::puts("Error opening Pipe !");
-		std::exit(-2);
+		fin.close();
+		fout.close();
+		remove("./tmp_inb");
+		remove("./tmp_outb");
+	};
+	
+	if (!pfront.open("./Snek3D-Frontend ./tmp_outb ./tmp_inb"))
+	{
+		std::puts("Error Starting Frontend !");
+		cleaner(); std::exit(-2);
 	}
 
-	pfront << (uint8_t)(sizeof(mint)*8u); // max bits per coord
-	pfront << game.wrld; // max world size
+	fout << (uint8_t)(sizeof(mint)*8u); // max bits per coord
+	fout << game.wrld; // max world size
 	
 	while (true)
 	{
-		if (!(pfront >> key))
+		if (!(fin >> key))
 		{
 			++err_cnt;
 			std::printf("Error Reading Key... (%-2d errors)\n", err_cnt);
@@ -66,7 +79,7 @@ int main()
 			if (err_cnt >= 20)
 			{
 				std::puts("\nToo Many Errors, Exiting...");
-				std::exit(-3);
+				cleaner(); std::exit(-3);
 			}
 			else continue;
 		}
@@ -74,8 +87,8 @@ int main()
 		game.nextFrame(key);
 		num_pnts = game.snek.size() + 1;
 		
-		pfront << num_pnts;	
-		pfront << game.food;
-		for (const auto& piece : game.snek) pfront << piece;
+		fout << num_pnts;	
+		fout << game.food;
+		for (const auto& piece : game.snek) fout << piece;
 	}
 }
