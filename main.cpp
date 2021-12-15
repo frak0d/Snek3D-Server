@@ -49,10 +49,12 @@ int main()
 	SnekGame3D<mint> game(20,20,20);
 
 	pipette::pipe pfront; // more contol over child process
+	pfront.open("./Snek3D-Frontend /tmp/tmp_outb /tmp/tmp_inb");
+
 	pipette::fifo fin("/tmp/tmp_inb", 'r'); // recieve from frontend
 	pipette::fifo fout("/tmp/tmp_outb", 'w'); // send to frontend
 	
-	/*if (!*/pfront.open("./Snek3D-Frontend /tmp/tmp_outb /tmp/tmp_inb");//)
+	/*if (!*///pfront.open("./Snek3D-Frontend /tmp/tmp_outb /tmp/tmp_inb");)
 	/*{
 		std::puts("Error Starting Frontend !");
 		cleaner(); std::exit(-2);
