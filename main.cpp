@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <concepts>
 
-#include "pipette/pipe.cpp"
+#include "pipette/pipette.cpp"
 #include "backend/SnekGame3D.hpp"
 
 /*
