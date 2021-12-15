@@ -24,12 +24,12 @@ backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
 
 int operator >> (const pipette::fifo& pipe, std::integral auto& T)
 {
-	return pipe.read((uint8_t*)&T, sizeof(T));
+	return pipe.read(&T, sizeof(T));
 }
 
 int operator << (const pipette::fifo& pipe, const std::integral auto& T)
 {
-	return pipe.write((uint8_t*)&T, sizeof(T));
+	return pipe.write(&T, sizeof(T));
 }
 
 template <typename T>
@@ -49,24 +49,25 @@ int main()
 	SnekGame3D<mint> game(20,20,20);
 
 	pipette::pipe pfront; // more contol over child process
-	pipette::fifo fin("./tmp_inb", 'r'); // recieve from frontend
-	pipette::fifo fout("./tmp_outb", 'w'); // send to frontend
+	pipette::fifo fin("/tmp/tmp_inb", 'r'); // recieve from frontend
+	pipette::fifo fout("/tmp/tmp_outb", 'w'); // send to frontend
+	
+	/*if (!*/pfront.open("./Snek3D-Frontend /tmp/tmp_outb /tmp/tmp_inb");//)
+	/*{
+		std::puts("Error Starting Frontend !");
+		cleaner(); std::exit(-2);
+	}*/
 
 	auto cleaner = [&]()
 	{
 		fin.close();
 		fout.close();
-		remove("./tmp_inb");
-		remove("./tmp_outb");
+		pfront.close();
+		remove("/tmp/tmp_inb");
+		remove("/tmp/tmp_outb");
 	};
-	
-	if (!pfront.open("./Snek3D-Frontend ./tmp_outb ./tmp_inb"))
-	{
-		std::puts("Error Starting Frontend !");
-		cleaner(); std::exit(-2);
-	}
 
-	fout << (uint8_t)(sizeof(mint)*8u); // max bits per coord
+	fout << (uint8_t)(sizeof(mint) * 8u); // max bits per coord
 	fout << game.wrld; // max world size
 	
 	while (true)
