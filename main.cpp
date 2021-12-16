@@ -40,21 +40,21 @@ void operator << (const pipette::fifo& pipe, const Point3D<T>& pnt)
 
 // SIGNAL HANDLERS //
 
-void keyinterrupt_handler(int signal)
+void interrupt_handler(int signal)
 {
   std::puts("\n\e[31;1m => Interrrupt Recieved, Exiting...\e[0m\n");
-  std::exit(0);
+  std::exit(-1);
 }
 
 void segfault_handler(int signal)
 {
   std::puts("\n\e[31;1m => Segmentation Fault, Exiting...\e[0m\n");
-  std::exit(0);
+  std::exit(-4);
 }
 
 int main()
 {
-	std::signal(SIGINT, keyinterrupt_handler);
+	std::signal(SIGINT, interrupt_handler);
 	std::signal(SIGSEGV, segfault_handler);
 
 	char key;
@@ -70,18 +70,18 @@ int main()
 		std::puts("\n\e[31;1m => Failed to Initiate Frontend, Exiting...\e[0m\n");
 		return -2;
 	}
-
+	
 	pipette::fifo fin("~/tmp_inb", 'r'); // recieve from frontend
 	pipette::fifo fout("~/tmp_outb", 'w'); // send to frontend
-
+	
 	auto cleaner = [&]()
 	{
 		std::puts("\n\e[33m => Cleaning Up Temporary FIFOs...\e[0m\n");
 		remove("~/tmp_inb");
 		remove("~/tmp_outb");
 	};
-
-	uint8_t gg = sizeof(mint) * 8u; // max bits per coord
+	
+	uint8_t gg = sizeof(mint) * 8u; // max bits per coord;
 	fout << gg;
 	fout << game.wrld; // max world size
 	
@@ -101,9 +101,10 @@ int main()
 		}
 		
 		game.nextFrame(key);
-		num_pnts = game.snek.size() + 1;
 		
-		fout << num_pnts;	
+		num_pnts = game.snek.size() + 1;
+		fout << num_pnts;
+		
 		fout << game.food;
 		for (const auto& piece : game.snek) fout << piece;
 	}
