@@ -38,38 +38,51 @@ void operator << (const pipette::fifo& pipe, const Point3D<T>& pnt)
 	pipe << pnt.x ; pipe << pnt.y ; pipe << pnt.z;
 }
 
+// SIGNAL HANDLERS //
+
+void keyinterrupt_handler(int signal)
+{
+  std::puts("\n\e[31;1m => Interrrupt Recieved, Exiting...\e[0m\n");
+  std::exit(0);
+}
+
+void segfault_handler(int signal)
+{
+  std::puts("\n\e[31;1m => Segmentation Fault, Exiting...\e[0m\n");
+  std::exit(0);
+}
+
 int main()
 {
-	using mint = uint8_t;
+	std::signal(SIGINT, keyinterrupt_handler);
+	std::signal(SIGSEGV, segfault_handler);
 
 	char key;
 	int err_cnt=0;
 	uint32_t num_pnts;
-	
+	using mint = uint8_t;
+
 	SnekGame3D<mint> game(20,20,20);
 
 	pipette::pipe pfront; // more contol over child process
-	pfront.open("./Snek3D-Frontend /tmp/tmp_outb /tmp/tmp_inb");
+	if (!pfront.open("./Snek3D-Frontend ~/tmp_outb ~/tmp_inb"))
+	{
+		std::puts("\n\e[31;1m => Failed to Initiate Frontend, Exiting...\e[0m\n");
+		return -2;
+	}
 
-	pipette::fifo fin("/tmp/tmp_inb", 'r'); // recieve from frontend
-	pipette::fifo fout("/tmp/tmp_outb", 'w'); // send to frontend
-	
-	/*if (!*///pfront.open("./Snek3D-Frontend /tmp/tmp_outb /tmp/tmp_inb");)
-	/*{
-		std::puts("Error Starting Frontend !");
-		cleaner(); std::exit(-2);
-	}*/
+	pipette::fifo fin("~/tmp_inb", 'r'); // recieve from frontend
+	pipette::fifo fout("~/tmp_outb", 'w'); // send to frontend
 
 	auto cleaner = [&]()
 	{
-		fin.close();
-		fout.close();
-		pfront.close();
-		remove("/tmp/tmp_inb");
-		remove("/tmp/tmp_outb");
+		std::puts("\n\e[33m => Cleaning Up Temporary FIFOs...\e[0m\n");
+		remove("~/tmp_inb");
+		remove("~/tmp_outb");
 	};
 
-	fout << (uint8_t)(sizeof(mint) * 8u); // max bits per coord
+	uint8_t gg = sizeof(mint) * 8u; // max bits per coord
+	fout << gg;
 	fout << game.wrld; // max world size
 	
 	while (true)
@@ -82,7 +95,7 @@ int main()
 			if (err_cnt >= 20)
 			{
 				std::puts("\nToo Many Errors, Exiting...");
-				cleaner(); std::exit(-3);
+				cleaner(); return -3;
 			}
 			else continue;
 		}
