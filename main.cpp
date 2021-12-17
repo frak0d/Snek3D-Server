@@ -62,7 +62,7 @@ int main()
 	uint32_t num_pnts;
 	using mint = uint8_t;
 
-	SnekGame3D<mint> game(20,20,20);
+	SnekGame3D<mint> game(16,16,16);
 
 	pipette::pipe pfront; // more contol over child process
 	if (!pfront.open("./Snek3D-Frontend ~/tmp_outb ~/tmp_inb"))
@@ -99,8 +99,21 @@ int main()
 			}
 			else continue;
 		}
+
+		// for debuggng
+		std::printf("key : %c\n", key);
 		
-		game.nextFrame(key);
+		if (key == 'E')	// exit signal from GUI
+		{
+			cleaner();
+			return 0;
+		}
+		
+		if (!game.nextFrame(key))	// game loop
+		{
+			std::puts("\e[31;1m ---=== Game Over! ===--- \e[0m");
+			cleaner(); return 0;
+		}
 		
 		num_pnts = game.snek.size() + 1;
 		fout << num_pnts;
@@ -109,3 +122,12 @@ int main()
 		for (const auto& piece : game.snek) fout << piece;
 	}
 }
+
+/*
+ *  EXIT CODES :-
+ *  0 -> Normal Exit or Game Over
+ * -1 -> Keyboard/System Interrupt
+ * -2 -> Error Starting Frontend
+ * -3 -> Too Many Errors in getting Key
+ * -4 -> Segmentation Fault
+ */

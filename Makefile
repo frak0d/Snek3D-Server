@@ -13,7 +13,7 @@ fdeps: bdir
 	cp frontend/ico.png     build/
 
 backend: bdir
-	$(CXX) --std=c++20 -s -O2 main.cpp -o build/Snek3D -Wno-narrowing
+	$(CXX) --std=c++20 -s -O2 main.cpp -o build/Snek3D -Wno-narrowing -static -flto
 
 backend-dbg: bdir
 	$(CXX) --std=c++20 -g -Og main.cpp -o build/Snek3D -Wno-narrowing
