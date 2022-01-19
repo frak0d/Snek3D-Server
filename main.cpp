@@ -1,133 +1,154 @@
+#include <bit>
+#include <ranges>
 #include <cstdio>
 #include <cstdlib>
 #include <csignal>
 #include <concepts>
+#include <iostream>
 
-#include "pipette/pipette.cpp"
-#include "backend/SnekGame3D.hpp"
+#include <backend/SnekGame3D.hpp>
+#include <ixwebsocket/IXWebSocketServer.h>
 
 /*
 $ HERE ARE FRONTEND PROTOCOL DETAILS :-
 
-[backend started by user]
-[backend pipes the  frontend]
+[backend starts a WebSocket Server on localhost]
+[frontend connects to the backend Server]
 
-backend (u8 max bits in one coord) >> frontend
+# NOTE: R,G,B are always u8
+ 
+backend (u8 - max bytes in one coord eg. z)      >> frontend
 backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
+backend (R,G,B world backgrounf color scheme)    >> frontend
 
 <repeat>
-	frontend (key pressed) >> backend
-	backend (u32 - no of points) >> frontend
-	backend (x,y,z,x,y,z....) >> frontend
+    frontend (char - key pressed) >> backend
+    backend  (u32 - num_points)   >> frontend
+    if [num_points == 0]
+    {
+    	# Game Over !
+    	backend (u32 - score) >> frontend;
+    	# Close Connection !
+    }
+    backend (x,y,z,R,G,B....) >> frontend
 </repeat>
 */
 
-int operator >> (const pipette::fifo& pipe, std::integral auto& T)
+bool operator<<(ix::WebSocket& ws, const std::integral auto& num)
 {
-	return pipe.read(&T, sizeof(T));
-}
-
-int operator << (const pipette::fifo& pipe, const std::integral auto& T)
-{
-	return pipe.write(&T, sizeof(T));
+    std::string data((char*)&num, (char*)(&num + 1));
+    if constexpr (std::endian::native == std::endian::little)
+    {
+    	std::ranges::reverse(data); // convert to network BO
+    }
+    return ws.sendBinary(data).success;
 }
 
 template <typename T>
-void operator << (const pipette::fifo& pipe, const Point3D<T>& pnt)
+void operator<<(ix::WebSocket& ws, const Point3D<T>& pnt)
 {
-	pipe << pnt.x ; pipe << pnt.y ; pipe << pnt.z;
+    ws << pnt.x;
+    ws << pnt.y;
+    ws << pnt.z;
+    
+    ws << pnt.color.r;
+    ws << pnt.color.g;
+    ws << pnt.color.b;
 }
 
 // SIGNAL HANDLERS //
 
 void interrupt_handler(int signal)
 {
-  std::puts("\n\e[31;1m => Interrrupt Recieved, Exiting...\e[0m\n");
-  std::exit(-1);
+    std::puts("\n\e[31;1m => Interrrupt Recieved, Exiting...\e[0m\n");
+    std::exit(-1);
 }
 
 void segfault_handler(int signal)
 {
-  std::puts("\n\e[31;1m => Segmentation Fault, Exiting...\e[0m\n");
-  std::exit(-4);
+    std::puts("\n\e[31;1m => Segmentation Fault, Exiting...\e[0m\n");
+    std::exit(-4);
 }
 
 int main()
 {
-	std::signal(SIGINT, interrupt_handler);
-	std::signal(SIGSEGV, segfault_handler);
+    std::signal(SIGINT, interrupt_handler);
+    std::signal(SIGSEGV, segfault_handler);
 
-	char key;
-	int err_cnt=0;
-	uint32_t num_pnts;
-	using mint = uint8_t;
+    char key;
+    uint32_t num_pnts;
+    using mint = uint8_t;
 
-	SnekGame3D<mint> game(16,16,16);
+    SnekGame3D<mint> game(16, 16, 16);
+    ix::WebSocketServer server(6969);
 
-	pipette::pipe pfront; // more contol over child process
-	if (!pfront.open("./Snek3D-Frontend ~/tmp_outb ~/tmp_inb"))
-	{
-		std::puts("\n\e[31;1m => Failed to Initiate Frontend, Exiting...\e[0m\n");
-		return -2;
-	}
-	
-	pipette::fifo fin("~/tmp_inb", 'r'); // recieve from frontend
-	pipette::fifo fout("~/tmp_outb", 'w'); // send to frontend
-	
-	auto cleaner = [&]()
-	{
-		std::puts("\n\e[33m => Cleaning Up Temporary FIFOs...\e[0m\n");
-		remove("~/tmp_inb");
-		remove("~/tmp_outb");
-	};
-	
-	uint8_t gg = sizeof(mint) * 8u; // max bits per coord;
-	fout << gg;
-	fout << game.wrld; // max world size
-	
-	while (true)
-	{
-		if (!(fin >> key))
-		{
-			++err_cnt;
-			std::printf("Error Reading Key... (%-2d errors)\n", err_cnt);
-			
-			if (err_cnt >= 20)
-			{
-				std::puts("\nToo Many Errors, Exiting...");
-				cleaner(); return -3;
-			}
-			else continue;
-		}
+    server.setOnClientMessageCallback([&](std::shared_ptr<ix::ConnectionState> connectionState,
+                                          ix::WebSocket& frontend, const ix::WebSocketMessagePtr& msg) {
+        if (msg->type == ix::WebSocketMessageType::Open)
+        {
+            std::clog << "Connected to" << '\n'
+                      << "id: " << connectionState->getId() << '\n'
+                      << "ip: " << connectionState->getRemoteIp() << '\n'
+                      << "Uri: " << msg->openInfo.uri << std::endl;
+            
+            frontend << sizeof(mint); // bytes per cooord
+            frontend << game.wrld; // max world size
+        }
+        else if (msg->type == ix::WebSocketMessageType::Close)
+        {
+            std::clog << "Disconnected from " << connectionState->getRemoteIp() << '\n';
+        }
+        else if (msg->type == ix::WebSocketMessageType::Message)
+        {
+            key = msg->str[0];
+            std::clog << "Received Key: " << key << '\n';
 
-		// for debuggng
-		std::printf("key : %c\n", key);
-		
-		if (key == 'E')	// exit signal from GUI
-		{
-			cleaner();
-			return 0;
-		}
-		
-		if (!game.nextFrame(key))	// game loop
-		{
-			std::puts("\e[31;1m ---=== Game Over! ===--- \e[0m");
-			cleaner(); return 0;
-		}
-		
-		num_pnts = game.snek.size() + 1;
-		fout << num_pnts;
-		
-		fout << game.food;
-		for (const auto& piece : game.snek) fout << piece;
-	}
+            if (key == 'E' || !game.nextFrame(key))
+            {
+                std::puts("\e[31;1m ---=== Game Over! ===--- \e[0m");
+                server.stop();
+                return 0;
+            }
+            else
+            {
+                num_pnts = game.snek.size() + 1/*food*/;
+                frontend << num_pnts;
+                frontend << game.food;
+                for (const auto &piece : game.snek) frontend << piece;
+            }
+        }
+        else if (msg->type == ix::WebSocketMessageType::Error)
+        {
+            std::clog << "Connection  Error: " << msg->errorInfo.reason << '\n'
+                      << "Retries: " << msg->errorInfo.retries << '\n'
+                      << "Wait  time(ms): " << msg->errorInfo.wait_time << '\n'
+                      << "HTTP  Status: " << msg->errorInfo.http_status << '\n';
+        }
+        else if (msg->type == ix::WebSocketMessageType::Ping)
+        {
+            std::clog << "Received ping from " << connectionState->getRemoteIp() << '\n';
+        }
+        else
+        {
+            std::clog << "\n\e[33;3m <!> Internal Error: Invalid WebSocketMessageType\e[0m\n";
+        }
+    });
+
+    if (!server.listen().first)
+    {
+        std::puts("\n\e[31;1m => Error Initiating WebSocket Server, Exiting...\e[0m\n");
+        std::exit(-2);
+    }
+
+    server.start();
+    server.wait();
 }
 
 /*
  *  EXIT CODES :-
  *  0 -> Normal Exit or Game Over
  * -1 -> Keyboard/System Interrupt
- * -2 -> Error Starting Frontend
- * -3 -> Too Many Errors in getting Key
+ * -2 -> Error Starting Websocket Server
+ * -3 -> <RESERVED>
  * -4 -> Segmentation Fault
  */

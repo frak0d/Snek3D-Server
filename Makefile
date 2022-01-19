@@ -1,22 +1,26 @@
-release: backend frontend
-debug: backend-dbg frontend-dbg
+release: Snek3D-Server
+debug: Snek3D-Server-Debug
 
 bdir:
 	mkdir -p build/
+	mkdir -p build/tmp
 
 clean:
 	rm -rf build/
 
-backend: bdir
-	$(CXX) --std=c++20 -s -O2 main.cpp -o build/Snek3D -Wno-narrowing -static -flto
+WS_SRC := ixwebsocket
+WS_OBJ := build/tmp
 
-backend-dbg: bdir
-	$(CXX) --std=c++20 -g -Og main.cpp -o build/Snek3D -Wno-narrowing
+SOURCES := $(wildcard $(WS_SRC)/*.cpp)
+OBJECTS := $(patsubst $(WS_SRC)/%.cpp, $(WS_OBJ)/%.o, $(SOURCES))
 
-frontend: bdir
-	cd frontend && $(MAKE)
-	mv frontend/build/* build/
+$(WS_OBJ)/%.o: $(WS_SRC)/%.cpp bdir
+	$(CXX) --std=c++20 -I. -O2 -c $< -o $@
 
-frontend-dbg: bdir
-	cd frontend && $(MAKE) debug
-	mv frontend/build/* build/
+Snek3D-Server: bdir $(OBJECTS)
+	$(CXX) --std=c++20 -I. -O2 -s main.cpp $(OBJECTS) -o build/Snek3D -Wno-narrowing -lpthread -flto
+	rm -rf $(WS_OBJ)
+
+Snek3D-Server-Debug: bdir $(OBJECTS)
+	$(CXX) --std=c++20 -I. -Og -g main.cpp $(OBJECTS) -o build/Snek3D -Wno-narrowing -lpthread -flto
+	rm -rf $(WS_OBJ)
