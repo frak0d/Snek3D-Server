@@ -1,4 +1,3 @@
-#include <bit>
 #include <ranges>
 #include <cstdio>
 #include <cstdlib>
@@ -60,13 +59,13 @@ void operator<<(ix::WebSocket& ws, const Point3D<T>& pnt)
 
 void interrupt_handler(int signal)
 {
-    std::puts("\n\e[31;1m => Interrrupt Recieved, Exiting...\e[0m\n");
+    std::puts("\n\x1b[31;1m => Interrrupt Recieved, Exiting...\x1b[0m\n");
     std::exit(-1);
 }
 
 void segfault_handler(int signal)
 {
-    std::puts("\n\e[31;1m => Segmentation Fault, Exiting...\e[0m\n");
+    std::puts("\n\x1b[31;1m => Segmentation Fault, Exiting...\x1b[0m\n");
     std::exit(-4);
 }
 
@@ -105,7 +104,7 @@ int main()
 
             if (key == 'E' || !game.nextFrame(key))
             {
-                std::puts("\e[31;1m ---=== Game Over! ===--- \e[0m");
+                std::puts("\x1b[31;1m ---=== Game Over! ===--- \x1b[0m");
                 server.stop();
                 return 0;
             }
@@ -130,13 +129,13 @@ int main()
         }
         else
         {
-            std::clog << "\n\e[33;3m <!> Internal Error: Invalid WebSocketMessageType\e[0m\n";
+            std::clog << "\n\x1b[33;3m <!> Internal Error: Invalid WebSocketMessageType\x1b[0m\n";
         }
     });
 
     if (!server.listen().first)
     {
-        std::puts("\n\e[31;1m => Error Initiating WebSocket Server, Exiting...\e[0m\n");
+        std::puts("\n\x1b[31;1m => Error Initiating WebSocket Server, Exiting...\x1b[0m\n");
         std::exit(-2);
     }
 
