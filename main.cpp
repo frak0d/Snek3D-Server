@@ -1,9 +1,9 @@
-#include <ranges>
 #include <cstdio>
 #include <cstdlib>
 #include <csignal>
 #include <concepts>
 #include <iostream>
+#include <algorithm>
 
 #include <backend/SnekGame3D.hpp>
 #include <ixwebsocket/IXWebSocketServer.h>
@@ -18,7 +18,7 @@ $ HERE ARE FRONTEND PROTOCOL DETAILS :-
  
 backend (u8 - max bytes in one coord eg. z)      >> frontend
 backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
-backend (R,G,B world backgrounf color scheme)    >> frontend
+backend (R,G,B world background color scheme)    >> frontend
 
 <repeat>
     frontend (char - key pressed) >> backend
@@ -38,7 +38,8 @@ bool operator<<(ix::WebSocket& ws, const std::integral auto& num)
     std::string data((char*)&num, (char*)(&num + 1));
     if constexpr (std::endian::native == std::endian::little)
     {
-    	std::ranges::reverse(data); // convert to network BO
+        // Convert to network BO (big endian)
+    	std::reverse(data.begin(), data.end());
     }
     return ws.sendBinary(data).success;
 }
@@ -82,7 +83,8 @@ int main()
     ix::WebSocketServer server(6969);
 
     server.setOnClientMessageCallback([&](std::shared_ptr<ix::ConnectionState> connectionState,
-                                          ix::WebSocket& frontend, const ix::WebSocketMessagePtr& msg) {
+                                          ix::WebSocket& frontend, const ix::WebSocketMessagePtr& msg)
+    {
         if (msg->type == ix::WebSocketMessageType::Open)
         {
             std::clog << "Connected to" << '\n'
