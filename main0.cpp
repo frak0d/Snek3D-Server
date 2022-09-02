@@ -5,7 +5,7 @@
 #include <iostream>
 #include <algorithm>
 
-#include <backend/MultiSnekGame3D.hpp>
+#include <backend/SnekGame3D.hpp>
 #include <ixwebsocket/IXWebSocketServer.h>
 
 /*
@@ -15,7 +15,7 @@ $ HERE ARE FRONTEND PROTOCOL DETAILS :-
 [frontend connects to the backend Server]
 
 # NOTE: R,G,B are always u8
-# NOTE: <-- --> indicates start and end of big msg
+# NOTE: <-- --> indicates start and end of msg
 
 <--
 backend (u8 - max bits in one coord eg. z or x)  >> frontend
@@ -30,7 +30,7 @@ backend (R,G,B world background color scheme)    >> frontend
     if [num_points == 0] # check this in frontend
     {
     	# Game Over !
-    	backend (u16 - score) >> frontend;
+    	backend (u32 - score) >> frontend;
     	# Close Connection !
     }
     backend (x,y,z,R,G,B....) >> frontend
@@ -97,51 +97,45 @@ int main()
     char key;
     using mint = uint8_t;
 
-    MultiSnekGame3D<mint> game(16, 16, 16);
+    SnekGame3D<mint> game(16, 16, 16);
     ix::WebSocketServer server(6969);
 
     server.setOnClientMessageCallback([&](std::shared_ptr<ix::ConnectionState> connectionState,
                                       ix::WebSocket& frontend, const ix::WebSocketMessagePtr& msg) -> void
     {
-
-        const uint64_t playerid = std::stoull(connectionState->getId());
-
         if (msg->type == ix::WebSocketMessageType::Open)
         {
             std::clog << "Connected to" << '\n'
                       << "id: " << connectionState->getId() << '\n'
-                      << "ip: " << connectionState->getRemoteIp() << '\n';
+                      << "ip: " << connectionState->getRemoteIp() << '\n'
+                      << "Uri: " << msg->openInfo.uri << std::endl;
             
             msgbuf msgb{frontend};
             msgb << uint8_t(sizeof(mint)*8); // bits per coordinate
             msgb << game.wrld;         // max world size & bg color
             msgb.send();
-
-            game.addPlayer(playerid, Color{255,255,255});
         }
         else if (msg->type == ix::WebSocketMessageType::Close)
         {
             std::clog << "Disconnected from " << connectionState->getRemoteIp() << '\n';
-            game.delPlayer(playerid);
         }
         else if (msg->type == ix::WebSocketMessageType::Message)
         {
             key = msg->str[0];
             std::clog << "Received Key: " << key << '\n';
 
-            if (key == 'E' || !game.nextFrame(playerid, key))
+            if (key == 'E' || !game.nextFrame(key))
             {
                 std::puts("\x1b[31;1m ---=== Game Over! ===--- \x1b[0m");
                 msgbuf msgb{frontend}; msgb << game.getScore(playerid); msgb.send();
-                game.delPlayer(playerid); frontend.close();
+                frontend.close();
             }
             else
             {
-                const auto& snek = game.getSnek(playerid);
                 msgbuf msgb{frontend};
-                msgb << snek.parts.size() + 1/*food*/;
+                msgb << game.snek.size() + 1/*food*/;
                 msgb << game.food;
-                for (const auto &piece : snek.parts) msgb << piece;
+                for (const auto &piece : game.snek) msgb << piece;
                 msgb.send();
             }
         }
