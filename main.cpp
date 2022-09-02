@@ -11,60 +11,79 @@
 /*
 $ HERE ARE FRONTEND PROTOCOL DETAILS :-
 
-[backend starts a WebSocket Server on localhost]
+[backend starts a WebSocket Server]
 [frontend connects to the backend Server]
 
 # NOTE: R,G,B are always u8
- 
-backend (u8 - max bytes in one coord eg. z)      >> frontend
+# NOTE: <-- --> indicates start and end of msg
+
+<--
+backend (u8 - max bits in one coord eg. z or x)  >> frontend
 backend (x,y,z world size (from 1,1,1 to x,y,z)) >> frontend
 backend (R,G,B world background color scheme)    >> frontend
+-->
 
 <repeat>
     frontend (char - key pressed) >> backend
+    <--
     backend  (u32 - num_points)   >> frontend
-    if [num_points == 0]
+    if [num_points == 0] # check this in frontend
     {
     	# Game Over !
     	backend (u32 - score) >> frontend;
     	# Close Connection !
     }
     backend (x,y,z,R,G,B....) >> frontend
+    -->
 </repeat>
 */
 
-bool operator<<(ix::WebSocket& ws, const std::integral auto& num)
+struct msgbuf
+{
+    std::string buf;
+    ix::WebSocket& ws;
+
+    msgbuf(ix::WebSocket& web_socket) : ws{web_socket} {}
+
+    bool send()
+    {
+        bool sent = ws.sendBinary(buf).success;
+        if (sent) buf.clear();
+        return sent;
+    }
+};
+
+msgbuf& operator<< (msgbuf& msgb, const std::integral auto& num)
 {
     std::string data((char*)&num, (char*)(&num + 1));
     if constexpr (std::endian::native == std::endian::little)
     {
-        // Convert to network BO (big endian)
     	std::reverse(data.begin(), data.end());
     }
-    return ws.sendBinary(data).success;
+    msgb.buf += data;
+    return msgb;
+}
+
+msgbuf& operator<< (msgbuf& msgb, const Color& color)
+{
+    return msgb << color.r << color.g << color.b;
 }
 
 template <typename T>
-void operator<<(ix::WebSocket& ws, const Point3D<T>& pnt)
+msgbuf& operator<< (msgbuf& msgb, const Point3D<T>& pnt)
 {
-    ws << pnt.x;
-    ws << pnt.y;
-    ws << pnt.z;
-    
-    ws << pnt.color.r;
-    ws << pnt.color.g;
-    ws << pnt.color.b;
+    return msgb << pnt.x << pnt.y << pnt.z << pnt.color;
 }
 
 // SIGNAL HANDLERS //
 
-void interrupt_handler(int signal)
+void interrupt_handler(int)
 {
     std::puts("\n\x1b[31;1m => Interrrupt Recieved, Exiting...\x1b[0m\n");
     std::exit(-1);
 }
 
-void segfault_handler(int signal)
+void segfault_handler(int)
 {
     std::puts("\n\x1b[31;1m => Segmentation Fault, Exiting...\x1b[0m\n");
     std::exit(-4);
@@ -76,14 +95,13 @@ int main()
     std::signal(SIGSEGV, segfault_handler);
 
     char key;
-    uint32_t num_pnts;
     using mint = uint8_t;
 
     SnekGame3D<mint> game(16, 16, 16);
     ix::WebSocketServer server(6969);
 
     server.setOnClientMessageCallback([&](std::shared_ptr<ix::ConnectionState> connectionState,
-                                          ix::WebSocket& frontend, const ix::WebSocketMessagePtr& msg)
+                                      ix::WebSocket& frontend, const ix::WebSocketMessagePtr& msg) -> void
     {
         if (msg->type == ix::WebSocketMessageType::Open)
         {
@@ -92,8 +110,10 @@ int main()
                       << "ip: " << connectionState->getRemoteIp() << '\n'
                       << "Uri: " << msg->openInfo.uri << std::endl;
             
-            frontend << sizeof(mint); // bytes per cooord
-            frontend << game.wrld; // max world size
+            msgbuf msgb{frontend};
+            msgb << uint8_t(sizeof(mint)*8); // bits per coordinate
+            msgb << game.wrld;         // max world size & bg color
+            msgb.send();
         }
         else if (msg->type == ix::WebSocketMessageType::Close)
         {
@@ -108,14 +128,15 @@ int main()
             {
                 std::puts("\x1b[31;1m ---=== Game Over! ===--- \x1b[0m");
                 server.stop();
-                return 0;
+                std::exit(0);
             }
             else
             {
-                num_pnts = game.snek.size() + 1/*food*/;
-                frontend << num_pnts;
-                frontend << game.food;
-                for (const auto &piece : game.snek) frontend << piece;
+                msgbuf msgb{frontend};
+                msgb << game.snek.size() + 1/*food*/;
+                msgb << game.food;
+                for (const auto &piece : game.snek) msgb << piece;
+                msgb.send();
             }
         }
         else if (msg->type == ix::WebSocketMessageType::Error)

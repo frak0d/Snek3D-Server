@@ -18,9 +18,9 @@ $(WS_OBJ)/%.o: $(WS_SRC)/%.cpp bdir
 	$(CXX) --std=c++20 -I. -O2 -c $< -o $@
 
 Snek3D-Server: bdir $(OBJECTS)
-	$(CXX) --std=c++20 -I. -O2 -s main.cpp $(OBJECTS) -o build/Snek3D-Server -Wno-narrowing -lpthread -flto -static
+	$(CXX) --std=c++20 -I. -O2 -s -Wall -Wextra -pedantic main.cpp $(OBJECTS) -o build/Snek3D-Server -Wno-narrowing -lpthread -flto -static
 	rm -rf $(WS_OBJ)
 
 Snek3D-Server-Debug: bdir $(OBJECTS)
-	$(CXX) --std=c++20 -I. -Og -g main.cpp $(OBJECTS) -o build/Snek3D-Server -Wno-narrowing -lpthread -flto
+	$(CXX) --std=c++20 -I. -Og -g -Wall -Wextra -pedantic main.cpp $(OBJECTS) -o build/Snek3D-Server -Wno-narrowing -lpthread -flto
 	rm -rf $(WS_OBJ)
